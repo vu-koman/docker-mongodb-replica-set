@@ -1,0 +1,108 @@
+version: '2.4'
+
+services:
+    mongodb_primary:
+        build:
+            context: ./
+            dockerfile: ./mongo/Dockerfile
+        image: buaa/mongo:0.1
+        container_name: buaa_mongodb_primary
+        hostname: buaa_mongodb_primary
+        ports:
+            - "27017:27017"
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: "root"
+            MONGO_INITDB_ROOT_PASSWORD: "toor"
+        volumes:
+            - "buaa_mongo_primary_data:/data/db"
+        networks:
+            - buaanet
+        command: --keyFile /etc/mongodb-keyfile --replSet buaa_mongo_replset
+        healthcheck:
+            test: ["CMD", "mongo", "-u", "root", "-p", "toor"]
+            interval: 20s
+            timeout: 10s
+            start_period: 5s
+            retries: 5
+
+    mongodb_secondary1:
+        build:
+            context: ./
+            dockerfile: ./mongo/Dockerfile
+        image: buaa/mongo:0.1
+        container_name: buaa_mongodb_secondary1
+        hostname: buaa_mongodb_secondary1
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: "root"
+            MONGO_INITDB_ROOT_PASSWORD: "toor"
+        volumes:
+            - "buaa_mongo_secondary_data1:/data/db"
+        networks:
+            - buaanet
+        command: --keyFile /etc/mongodb-keyfile --replSet buaa_mongo_replset
+        healthcheck:
+            test: ["CMD", "mongo", "-u", "root", "-p", "toor"]
+            interval: 20s
+            timeout: 10s
+            start_period: 5s
+            retries: 5
+
+    mongodb_secondary2:
+        build:
+            context: ./
+            dockerfile: ./mongo/Dockerfile
+        image: buaa/mongo:0.1
+        container_name: buaa_mongodb_secondary2
+        hostname: buaa_mongodb_secondary2
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: "root"
+            MONGO_INITDB_ROOT_PASSWORD: "toor"
+        volumes:
+            - "buaa_mongo_secondary_data2:/data/db"
+        networks:
+            - buaanet
+        command: --keyFile /etc/mongodb-keyfile --replSet buaa_mongo_replset
+        healthcheck:
+            test: ["CMD", "mongo", "-u", "root", "-p", "toor"]
+            interval: 20s
+            timeout: 10s
+            start_period: 5s
+            retries: 5
+
+    mongo-connector:
+        build: ./mongo-connector
+        container_name: mongo-connector
+        depends_on:
+            mongodb_primary:
+                condition: service_healthy
+            mongodb_secondary1:
+                condition: service_healthy
+            mongodb_secondary2:
+                condition: service_healthy
+        networks: 
+            - buaanet
+
+    mongo-express:
+        image: mongo-express
+        container_name: buaa_mongo-express
+        ports:
+            - "8081:8081"
+        environment:
+            ME_CONFIG_MONGODB_ADMINUSERNAME: "root"
+            ME_CONFIG_MONGODB_ADMINPASSWORD: "toor"
+            ME_CONFIG_MONGODB_SERVER: "buaa_mongodb_primary,buaa_mongodb_secondary1,buaa_mongodb_secondary2"
+            ME_CONFIG_BASICAUTH_USERNAME: "root"
+            ME_CONFIG_BASICAUTH_PASSWORD: "toor"
+
+        depends_on:
+            - mongo-connector
+        networks: 
+            - buaanet
+
+volumes:
+    buaa_mongo_primary_data:
+    buaa_mongo_secondary_data1:
+    buaa_mongo_secondary_data2:
+
+networks:
+    buaanet:
